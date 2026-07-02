@@ -1080,26 +1080,44 @@ export default function App() {
   };
 
   const handleDelete = async (id) => {
-    if (user && db) {
-      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'subjects', id);
-      await deleteDoc(docRef);
-    } else {
+    try {
+      if (user && db) {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'subjects', id);
+        await deleteDoc(docRef);
+      } else {
+        setSubjects(subjects.filter(s => s.id !== id));
+      }
+    } catch (error) {
+      console.error("雲端刪除失敗，切換回本機刪除:", error);
       setSubjects(subjects.filter(s => s.id !== id));
     }
   };
 
   const saveSubject = async () => {
-    if (user && db) {
-      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'subjects', currentSubject.id);
-      await setDoc(docRef, currentSubject);
-    } else {
+    try {
+      if (user && db) {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'subjects', currentSubject.id);
+        await setDoc(docRef, currentSubject);
+      } else {
+        // 本機端備用儲存邏輯
+        setSubjects(prev => {
+          const exists = prev.find(s => s.id === currentSubject.id);
+          if (exists) return prev.map(s => s.id === currentSubject.id ? currentSubject : s);
+          return [...prev, currentSubject];
+        });
+      }
+    } catch (error) {
+      console.error("雲端儲存失敗，已切換回本機暫存:", error);
+      // 確保雲端失敗時，本機仍有保留資料
       setSubjects(prev => {
         const exists = prev.find(s => s.id === currentSubject.id);
         if (exists) return prev.map(s => s.id === currentSubject.id ? currentSubject : s);
         return [...prev, currentSubject];
       });
+    } finally {
+      // 保證無論成功或失敗，都會確實切換回儀表板視圖
+      setView('dashboard');
     }
-    setView('dashboard');
   };
 
   const exportToExcel = async () => {
